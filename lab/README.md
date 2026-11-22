@@ -1,7 +1,12 @@
 # Лаборатория: видео → чарт и аудио-поиск
 
-Два прототипа без внешних зависимостей. Открываются через локальный сервер (`serve.ps1` в корне проекта):
+Два прототипа без внешних зависимостей.
 
+Открыть прямо с телефона:
+- https://anton4ik837-eng.github.io/fnf2osu-mania/lab/video2chart.html
+- https://anton4ik837-eng.github.io/fnf2osu-mania/lab/audio-search.html
+
+Локально через `serve.ps1` в корне проекта:
 - `http://localhost:8765/lab/video2chart.html`
 - `http://localhost:8765/lab/audio-search.html`
 
