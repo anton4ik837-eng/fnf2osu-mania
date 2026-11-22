@@ -2,7 +2,13 @@
 
 Веб-конвертер чартов FNF-игр в мапсеты **osu!mania 4K–18K**. Работает на телефоне и на ПК, сервер не нужен.
 
-**Открыть онлайн:** https://fnf2osu-converter.pages.dev
+**Открыть онлайн (основная версия):** https://fnf2osu-converter.pages.dev
+
+**Репозиторий:** https://github.com/anton4ik837-eng/fnf2osu-mania
+
+**Зеркало на GitHub Pages:** https://anton4ik837-eng.github.io/fnf2osu-mania/ — там же доступны прототипы из `lab/`:
+- https://anton4ik837-eng.github.io/fnf2osu-mania/lab/video2chart.html
+- https://anton4ik837-eng.github.io/fnf2osu-mania/lab/audio-search.html
 
 Проект задеплоен на Cloudflare Pages (Direct Upload, аккаунт `afcaa10b...`). При изменении файлов нужно заново собрать ZIP из `index.html`, `app.js`, `importer.js` и загрузить новую версию в проект `fnf2osu-converter` → Deployments → Create new deployment.
 
