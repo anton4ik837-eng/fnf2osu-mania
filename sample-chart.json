@@ -1,0 +1,16 @@
+{
+  "song": {
+    "name": "Test Bop",
+    "bpm": 128,
+    "speed": 1.2,
+    "notes": [
+      { "songTime": 2000, "noteData": 0, "noteType": "" },
+      { "songTime": 2000, "noteData": 2, "noteType": "" },
+      { "songTime": 2437, "noteData": 1, "noteType": "Alt Note" },
+      { "songTime": 2687, "noteData": 3, "noteType": "", "isSustainNote": false, "holdLength": 469 },
+      { "songTime": 3000, "noteData": 0, "noteType": "" },
+      { "songTime": 3156, "noteData": 0, "noteType": "", "isSustainNote": true },
+      { "songTime": 3500, "noteData": 2, "noteType": "" }
+    ]
+  }
+}

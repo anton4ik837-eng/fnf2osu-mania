@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12131a">
+<title>FNF → osu!mania</title>
+<style>
+  :root{
+    --bg:#12131a; --card:#1c1e28; --card2:#242734; --line:#343849;
+    --text:#eef0f6; --muted:#9aa0b5; --pink:#ff5a7a; --blue:#66cff4;
+    --ok:#5ddba0; --warn:#ffc857;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:16px env(safe-area-inset-right) calc(24px + env(safe-area-inset-bottom)) env(safe-area-inset-left)}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 2px}
+  h1 span{color:var(--pink)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px;margin-bottom:12px}
+  .card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+    background:var(--pink);color:#150a0e;font-size:12px;font-weight:700;flex:none}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;min-height:44px;background:var(--card2);border:1px solid var(--line);
+    border-radius:9px;color:var(--text);padding:10px 12px;font:inherit;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--blue)}
+  textarea{min-height:110px;resize:vertical;font:12px/1.4 ui-monospace,Consolas,monospace}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:44px;padding:10px 16px;border:0;border-radius:9px;font:inherit;
+    font-weight:600;cursor:pointer;background:var(--card2);color:var(--text);
+    border:1px solid var(--line);text-decoration:none}
+  .btn.primary{background:var(--pink);color:#1a0a0f;border-color:var(--pink)}
+  .btn.blue{background:var(--blue);color:#06202b;border-color:var(--blue)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+  .row>*{flex:1 1 160px}
+  .row .btn{flex:0 0 auto}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+  .hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+  .drop{border:2px dashed var(--line);border-radius:11px;padding:22px 14px;text-align:center;
+    color:var(--muted);font-size:13px;transition:.15s}
+  .drop.on{border-color:var(--blue);background:#1d2833}
+  .filelist{margin:10px 0 0;padding:0;list-style:none;font-size:13px}
+  .filelist li{padding:6px 9px;background:var(--card2);border-radius:7px;margin-top:5px;
+    display:flex;justify-content:space-between;gap:8px}
+  .filelist b{color:var(--blue);font-weight:500;word-break:break-all}
+  .filelist i{color:var(--muted);font-style:normal;font-size:11px;flex:none}
+  .msg{padding:10px 12px;border-radius:9px;font-size:13px;margin-top:10px;display:none}
+  .msg.show{display:block}
+  .msg.err{background:#3b1b22;color:#ff9db0;border:1px solid #6b2b39}
+  .msg.ok{background:#173329;color:var(--ok);border:1px solid #275844}
+  .msg.warn{background:#3a2f17;color:var(--warn);border:1px solid #6b5527}
+  pre{background:#0e0f15;border:1px solid var(--line);border-radius:9px;padding:12px;
+    overflow:auto;max-height:300px;font:11px/1.45 ui-monospace,Consolas,monospace;
+    color:#c9d4ea;margin:10px 0 0}
+  details{margin-top:10px}summary{cursor:pointer;color:var(--muted);font-size:13px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--card2);
+    font-size:11px;color:var(--muted);margin:2px 3px 0 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FNF <span>→</span> osu!mania</h1>
+  <div class="sub">Конвертер чартов браузерных FNF-игр в мапсеты osu!mania 4K. Работает прямо в браузере, на телефоне тоже.</div>
+
+  <div class="card">
+    <h2><span class="num">1</span> Чарт и аудио</h2>
+    <div class="drop" id="drop">Нажми, чтобы выбрать файлы, или перетащи сюда<br>
+      <small>.json чарты + аудио (.mp3 / .ogg / .wav)</small></div>
+    <input type="file" id="file" accept=".json,.mp3,.ogg,.wav,application/json,audio/*" multiple hidden>
+    <ul class="filelist" id="files"></ul>
+    <label>Или вставь содержимое чарта .json</label>
+    <textarea id="paste" placeholder='{"song":{"name":"...","bpm":128,"notes":[...]}}'></textarea>
+    <label>Или ссылка на .json (если сайт разрешает CORS)</label>
+    <div class="row">
+      <input type="text" id="url" placeholder="https://.../Hard.json">
+      <input type="text" id="proxy" placeholder="CORS-прокси (необязательно)">
+      <button class="btn" id="loadUrl">Загрузить</button>
+    </div>
+    <div class="msg" id="msg1"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">★</span> Импорт по ссылке</h2>
+    <label>Ссылка на мод / репозиторий / архив</label>
+    <input type="text" id="impUrl" placeholder="https://gamebanana.com/mods/12345 или https://github.com/user/repo">
+    <p class="hint">Поддерживаются GameBanana, GitHub (repo, папка, blob, raw, archive) и прямые ссылки на .json / .zip. Чарты и аудио инструмент найдёт сам — искать руками .json не нужно.</p>
+    <label>Свой CORS-прокси (опционально)</label>
+    <input type="text" id="impProxy" placeholder="https://your-proxy/?url=">
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn blue" id="impResolve">Найти чарты по ссылке</button>
+      <button class="btn" id="impCancel" disabled>Отмена</button>
+    </div>
+    <div id="impFiles"></div>
+    <div class="msg" id="impMsg"></div>
+    <div id="impResult"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> Информация о мапе</h2>
+    <div class="grid">
+      <div><label>Artist</label><input type="text" id="artist" value="Unknown"></div>
+      <div><label>Title</label><input type="text" id="title" placeholder="заполнится из чарта"></div>
+      <div><label>Creator</label><input type="text" id="creator" value="FNF2osu"></div>
+      <div><label>Сложность</label><input type="text" id="version" value="Hard"></div>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div><label>HP drain</label><input type="number" id="hp" value="5" min="0" max="10" step="0.5"></div>
+      <div><label>Overall difficulty</label><input type="number" id="od" value="8" min="0" max="10" step="0.5"></div>
+      <div><label>Тишина спереди, мс</label><input type="number" id="leadin" value="0" min="0" max="5000" step="500"></div>
+      <div><label>Клавиш (K)</label><select id="keys">
+        <option>4</option><option>5</option><option>6</option><option>7</option>
+        <option>8</option><option>9</option><option>10</option><option>12</option><option>16</option>
+      </select></div>
+      <div><label>SV (0 = выкл)</label><input type="number" id="sv" value="0" min="0" max="4" step="0.1"></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:13px;margin-top:12px">
+      <input type="checkbox" id="mp3" checked style="width:auto;min-height:auto">Микс Inst+Voices → MP3 вместо WAV (меньше файл)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--text);font-size:13px">
+      <input type="checkbox" id="altwhistle" style="width:auto;min-height:auto">_alt-ноты → свисток (hitsound)_
+    </label>
+    <p class="hint">Тишина спереди даёт время на реакцию: к аудио добавляется пауза, все ноты сдвигаются на столько же — синхронизация не ломается. Аудио при этом перекодируется в WAV (файл больше).</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> Результат</h2>
+    <div class="row">
+      <button class="btn primary" id="build">Собрать .osz</button>
+      <button class="btn" id="downloadOsu">Скачать только .osu</button>
+    </div>
+    <div class="msg" id="msg3"></div>
+    <div id="result"></div>
+  </div>
+
+  <div class="foot">Чарт не покидает устройство (кроме загрузки по ссылке). Для публикации мапов с чужой музыкой нужны права.</div>
+</div>
+<script src="app.js"></script>
+<script src="lame.min.js"></script>
+<script src="importer.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id)};
+  var charts=[], audioFile=null, parsed=[];
+
+  function msg(id, text, kind){
+    var el=$(id); el.textContent=text||''; el.className='msg'+(text?' show '+(kind||'ok'):'');
+  }
+  function fmtSize(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB'}
+
+  function renderFiles(){
+    var ul=$('files'); ul.innerHTML='';
+    charts.forEach(function(f){ addItem(f.name, 'чарт'); });
+    if(audioFile) addItem(audioFile.name, fmtSize(audioFile.size));
+    function addItem(name, tag){
+      var li=document.createElement('li'), b=document.createElement('b'), i=document.createElement('i');
+      b.textContent=name; i.textContent=tag; li.appendChild(b); li.appendChild(i); ul.appendChild(li);
+    }
+  }
+
+  async function handleFiles(list){
+    list=Array.from(list); // снимок: FileList живёт до очистки input.value
+    for(var i=0;i<list.length;i++){
+      var f=list[i], n=f.name.toLowerCase();
+      if(n.endsWith('.json')){
+        try{
+          var p=Fnf2Osu.parseChart(await f.text(), f.name);
+          p.fileName=f.name; charts.push(p);
+        }catch(e){ msg('msg1','Ошибка в '+f.name+': '+e.message,'err'); }
+      } else if(/\.(mp3|ogg|wav|m4a|flac)$/.test(n)){
+        audioFile=f;
+      }
+    }
+    renderFiles();
+    if(!charts.length){ msg('msg1','Чарты не найдены','warn'); return; }
+    var first=charts[0];
+    if(!$('title').value) $('title').value=first.name;
+    $('version').value=$('version').value||first.fileName.replace(/\.json$/i,'');
+    var all=[]; charts.forEach(function(c){all=all.concat(c.warnings.map(function(w){return c.name+': '+w}))});
+    msg('msg1','Чартов: '+charts.length+' · нот: '+first.notes.length+' · BPM: '+first.bpm+
+      (audioFile?' · аудио: '+audioFile.name:' · аудио не загружено')+
+      (all.length?'\n'+all.join('\n'):''), audioFile?'ok':'warn');
+    buildPreview();
+  }
+
+  $('drop').addEventListener('click',function(){$('file').click()});
+  $('file').addEventListener('change',function(e){handleFiles(Array.from(e.target.files)); e.target.value=''});
+  ['dragenter','dragover'].forEach(function(t){$('drop').addEventListener(t,function(e){e.preventDefault();$('drop').classList.add('on')})});
+  ['dragleave','drop'].forEach(function(t){$('drop').addEventListener(t,function(e){e.preventDefault();$('drop').classList.remove('on')})});
+  $('drop').addEventListener('drop',function(e){handleFiles(e.dataTransfer.files)});
+
+  $('paste').addEventListener('input',function(){
+    var v=this.value.trim(); if(!v) return;
+    try{
+      var p=Fnf2Osu.parseChart(v,'pasted.json'); p.fileName='pasted.json';
+      charts=[p]; if(!$('title').value)$('title').value=p.name;
+      msg('msg1','Чарт из текста распознан: '+p.notes.length+' нот, BPM '+p.bpm,'ok');
+      renderFiles(); buildPreview();
+    }catch(e){ msg('msg1','Не удалось разобрать JSON: '+e.message,'err'); }
+  });
+
+  $('loadUrl').addEventListener('click',async function(){
+    var url=$('url').value.trim(); if(!url){msg('msg1','Вставь ссылку','warn');return}
+    var proxy=$('proxy').value.trim();
+    var target=proxy?proxy+encodeURIComponent(url):url;
+    this.disabled=true; msg('msg1','Загружаю...','warn');
+    try{
+      var r=await fetch(target); if(!r.ok)throw new Error('HTTP '+r.status);
+      var text=await r.text();
+      var name=(url.split('/').pop()||'remote.json').split('?')[0];
+      var p=Fnf2Osu.parseChart(text,name); p.fileName=name;
+      charts.push(p); if(!$('title').value)$('title').value=p.name;
+      renderFiles(); msg('msg1','Загружено: '+name+' · '+p.notes.length+' нот','ok'); buildPreview();
+    }catch(e){ msg('msg1','Не вышло: '+e.message+'. Возможно, нужен CORS-прокси.','err'); }
+    finally{this.disabled=false}
+  });
+
+  function opts(extra){
+    return Object.assign({
+      title:$('title').value, artist:$('artist').value, creator:$('creator').value,
+      version:$('version').value, hp:+$('hp').value, od:+$('od').value,
+      keys:+$('keys').value, sv:+$('sv').value,
+      altAsWhistle:$('altwhistle').checked
+    }, extra||{});
+  }
+
+  function buildPreview(){
+    if(!charts.length)return;
+    var html='';
+    charts.forEach(function(c,i){
+      var o=opts(); o.version = charts.length>1 ? (c.fileName.replace(/\.json$/i,'')||('Diff '+(i+1))) : o.version;
+      html+='<details'+(i===0?' open':'')+'><summary>'+Fnf2Osu.safeName(o.version)+' — '+c.notes.length+' нот</summary><pre>'+
+        escapeHtml(Fnf2Osu.buildOsu(c,o).split('[HitObjects]')[0])+'</pre></details>';
+    });
+    $('result').innerHTML=html;
+  }
+  function escapeHtml(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+  function download(data, name, type){
+    var blob=data instanceof Blob?data:new Blob([data],{type:type||'application/octet-stream'});
+    var a=document.createElement('a'), url=URL.createObjectURL(blob);
+    a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url)},10000);
+  }
+
+  $('downloadOsu').addEventListener('click',function(){
+    if(!charts.length){msg('msg3','Сначала загрузи чарт','warn');return}
+    var o=opts(); var c=charts[0];
+    download(Fnf2Osu.buildOsu(c,o), Fnf2Osu.safeName(o.artist+' - '+o.title+' ('+o.creator+') ['+o.version+']')+'.osu','text/plain');
+  });
+
+  /** Собирает байты .osz без скачивания. */
+  async function buildOsz(chartList, audioBytes, audioExt, baseName, meta){
+    if(!chartList || !chartList.length) throw new Error('Нет чартов');
+    if(!audioBytes) throw new Error('Нет аудио для этой песни');
+    var leadin=+$('leadin').value||0;
+    var audioData=audioBytes, ext=audioExt||'mp3', shift=0;
+    if(leadin>0){
+      var res=await Fnf2Osu.prependSilence(audioData,leadin);
+      if(res.buffer){audioData=res.buffer;ext=res.ext;shift=leadin}
+    }
+    var o=opts(meta), files=[{name:'audio.'+ext,data:new Uint8Array(audioData)}];
+    chartList.forEach(function(c,i){
+      var srcName=c.fileName||c.name||('Diff '+(i+1));
+      var diff=chartList.length>1?(srcName.replace(/\.json$/i,'')||('Diff '+(i+1))):o.version;
+      var oo=Object.assign({},o,{version:diff,audioFile:'audio.'+ext,timeShift:shift});
+      files.push({name:Fnf2Osu.safeName(o.artist+' - '+(o.title||baseName)+' ('+o.creator+') ['+diff+']')+'.osu',data:Fnf2Osu.buildOsu(c,oo)});
+    });
+    return {bytes:Fnf2Osu.makeZip(files), name:Fnf2Osu.safeName(baseName||(o.artist+' - '+o.title))+'.osz'};
+  }
+
+  async function assemble(chartList, audioBytes, audioExt, baseName, statusId, btn, meta){
+    if(btn) btn.disabled=true;
+    msg(statusId,'Собираю мапсет...','warn');
+    try{
+      var r=await buildOsz(chartList,audioBytes,audioExt,baseName,meta);
+      download(r.bytes,r.name,'application/zip');
+      msg(statusId,'Готово! '+r.name+' ('+fmtSize(r.bytes.length)+').','ok');
+      return r;
+    }catch(e){ msg(statusId,'Ошибка сборки: '+(e&&e.message||e),'err'); }
+    finally{ if(btn) btn.disabled=false }
+  }
+
+  $('build').addEventListener('click',async function(){
+    if(!audioFile){msg('msg3','Нужен аудиофайл — добавь его на шаге 1','warn');return}
+    var bytes=await audioFile.arrayBuffer();
+    return assemble(charts, bytes, (audioFile.name.split('.').pop()||'mp3').toLowerCase(), null, 'msg3', this);
+  });
+
+  ['artist','title','creator','version','hp','od','keys','sv','altwhistle'].forEach(function(id){
+    $(id).addEventListener('input',buildPreview);
+  });
+
+  // ---------- Импорт по ссылке ----------
+  var importAbort=null, importTitle='', importSource='';
+
+  function groupMeta(g){
+    return {
+      artist: importTitle || 'Unknown',
+      title: g.song,
+      source: importSource || '',
+      tags: (importSource||'').replace(/^https?:\/\//,'').split('/')[0]
+    };
+  }
+
+  $('impCancel').addEventListener('click',function(){
+    if(importAbort){ importAbort.abort(); msg('impMsg','Отменяю...','warn'); }
+  });
+
+  async function startImport(files, title, sourceUrl){
+    $('impResult').innerHTML='';
+    importAbort=new AbortController(); importTitle=title||''; importSource=sourceUrl||'';
+    $('impCancel').disabled=false; $('impResolve').disabled=true;
+    try{
+      var res=await FnfImport.load(files, $('impProxy').value.trim(),
+        function(t){ msg('impMsg',t,'warn'); },
+        { keys:+$('keys').value, mp3:$('mp3').checked, signal:importAbort.signal, source:importSource });
+      renderImported(res.groups, title);
+      msg('impMsg','Найдено песен: '+res.groups.length+' (файлов: '+res.entries+', аудио: '+res.audios+')','ok');
+    }catch(e){
+      var canceled=/Отменено|abort/i.test(String(e&&e.message||e));
+      msg('impMsg', canceled?'Отменено':'Ошибка: '+(e&&e.message||e), canceled?'warn':'err');
+    } finally {
+      importAbort=null; $('impCancel').disabled=true; $('impResolve').disabled=false;
+    }
+  }
+
+  function renderImported(groups, title){
+    var host=$('impResult'); host.innerHTML='';
+    if(!groups.length){ msg('impMsg','Чарты не найдены','warn'); return; }
+    var all=document.createElement('div'); all.style.margin='12px 0';
+    all.innerHTML='<button class="btn" id="impAll">Скачать все песни одним архивом</button>';
+    host.appendChild(all);
+    all.querySelector('#impAll').addEventListener('click', async function(){
+      this.disabled=true;
+      try{
+        var pack=[];
+        for(var i=0;i<groups.length;i++){
+          var g=groups[i];
+          if(!g.audio) continue;
+          msg('impMsg','Упаковываю '+(i+1)+' из '+groups.length+': '+g.song,'warn');
+          var r=await buildOsz(g.charts.map(function(c){return c.parsed}), g.audio, g.audioExt, g.song, groupMeta(g));
+          pack.push({name:r.name,data:r.bytes});
+        }
+        if(!pack.length) throw new Error('Нет песен с аудио');
+        var zip=Fnf2Osu.makeZip(pack);
+        var nm=Fnf2Osu.safeName(title||'fnf-maps')+'-maps.zip';
+        download(zip,nm,'application/zip');
+        msg('impMsg','Готово! '+nm+' ('+fmtSize(zip.length)+'). Внутри .osz для каждой песни.','ok');
+      }catch(e){ msg('impMsg','Ошибка: '+(e&&e.message||e),'err'); }
+      finally{ this.disabled=false; }
+    });
+
+    groups.forEach(function(g){
+      var card=document.createElement('div');
+      card.className='card'; card.style.cssText='background:var(--card2);margin:8px 0;padding:12px';
+      var safe=escapeHtml(g.song);
+      var audioLabel='<span class="audioStatus pill">'+(g.audio?'аудио OK':escapeHtml(g.audioError||'аудио не найдено'))+'</span>';
+      var audioPicker=g.audio?'':'<div class="hint" style="margin-top:6px">Аудио нет в моде — прикрепи его сам: '+
+        '<input type="file" class="audioPick" accept="audio/*" style="display:block;margin-top:5px"></div>';
+      var diffs=g.charts.map(function(c,i){
+        return '<label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:13px;margin:5px 0">'+
+          '<input type="checkbox" data-i="'+i+'" checked style="width:auto;min-height:auto">'+
+          '<span>'+escapeHtml(c.name)+'</span><span class="pill">'+c.parsed.notes.length+' нот · '+c.parsed.bpm+' BPM</span></label>';
+      }).join('');
+      card.innerHTML='<b>'+safe+'</b> <span class="pill">'+g.charts.length+' сложностей</span> '+audioLabel+
+        audioPicker+'<div style="margin-top:8px">'+diffs+'</div>'+
+        '<button class="btn primary" style="margin-top:8px"'+(g.audio?'':' disabled')+'>Скачать .osz</button>';
+      var btn=card.querySelector('button');
+      var pick=card.querySelector('.audioPick');
+      if(pick) pick.addEventListener('change', async function(){
+        var f=this.files[0]; if(!f) return;
+        g.audio=await f.arrayBuffer();
+        g.audioExt=(f.name.split('.').pop()||'mp3').toLowerCase();
+        g.audioError=null;
+        btn.disabled=false;
+        card.querySelector('.audioStatus').textContent='аудио OK';
+      });
+      btn.addEventListener('click',function(){
+        var picks=Array.from(card.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return g.charts[+cb.dataset.i].parsed});
+        if(!picks.length){msg('impMsg','Выбери хотя бы одну сложность','warn');return}
+        return assemble(picks,g.audio,g.audioExt,g.song,'impMsg',btn,groupMeta(g));
+      });
+      host.appendChild(card);
+    });
+  }
+
+  $('impResolve').addEventListener('click', async function(){
+    var url=$('impUrl').value.trim();
+    if(!url){ msg('impMsg','Вставь ссылку','warn'); return; }
+    this.disabled=true; $('impFiles').innerHTML=''; msg('impMsg','Опрашиваю источник...','warn');
+    try{
+      var r=await FnfImport.resolve(url, $('impProxy').value.trim());
+      if(!r.files.length){ msg('impMsg','Файлы не найдены — проверь ссылку','warn'); return; }
+      if(r.files.length===1){ await startImport(r.files, r.title, r.sourceUrl); return; }
+      // несколько файлов у мода — даём выбрать
+      var host=$('impFiles');
+      host.innerHTML='<label>Файл мода (выбери архив)</label><select id="impFileSel"></select>'+
+        '<div style="margin-top:8px"><button class="btn blue" id="impGo">Скачать выбранный</button></div>';
+      var sel=host.querySelector('#impFileSel');
+      function supported(f){ return /\.(zip|json|ogg|mp3|wav)$/i.test(f.name); }
+      r.files.map(function(f,i){return {f:f,i:i};}).sort(function(a,b){
+        return (supported(a.f)?0:1)-(supported(b.f)?0:1);
+      }).forEach(function(x){
+        var f=x.f, o=document.createElement('option'); o.value=x.i;
+        o.textContent=f.name+(f.size?' ('+fmtSize(f.size)+')':'')+
+          (!supported(f)?' [RAR/7z — не поддерживается]':(f.archived?' [архив]':''));
+        sel.appendChild(o);
+      });
+      host.querySelector('#impGo').addEventListener('click',function(){
+        var f=r.files[+sel.value];
+        if(!supported(f)){ msg('impMsg','RAR/7z не поддерживаются — выбери .zip версию файла','warn'); return; }
+        if(f.size>50*1048576 && !confirm('Файл '+(f.size/1048576).toFixed(0)+' MB. На телефоне это может быть долго и требовать много памяти. Продолжить?')) return;
+        startImport([f], r.title, r.sourceUrl);
+      });
+      msg('impMsg','Найдено файлов: '+r.files.length+'. Выбери .zip (RAR не поддерживается).','ok');
+    }catch(e){ msg('impMsg','Ошибка: '+(e&&e.message||e),'err'); }
+    finally{ this.disabled=false; }
+  });
+})();
+</script>
+</body>
+</html>
