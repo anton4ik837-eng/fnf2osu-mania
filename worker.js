@@ -17,6 +17,7 @@ function allowed(host) {
 
 const OK_ORIGINS = [
   'https://fnf2osu-converter.pages.dev',
+  'https://anton4ik837-eng.github.io',
   'http://localhost:8765',
   'http://127.0.0.1:8765',
   'null'
