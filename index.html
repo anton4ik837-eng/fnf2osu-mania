@@ -77,7 +77,8 @@
     <ul class="filelist" id="files"></ul>
     <label>Или вставь содержимое чарта .json</label>
     <textarea id="paste" placeholder='{"song":{"name":"...","bpm":128,"notes":[...]}}'></textarea>
-    <label>Или ссылка на .json (если сайт разрешает CORS)</label>
+    <label>Прямая ссылка на .json-чарт (если сайт разрешает CORS)</label>
+    <p class="hint">Ссылки на моды GameBanana / GitHub и архивы .zip вставляй в блок «Импорт по ссылке» ниже — там чарты найдутся сами.</p>
     <div class="row">
       <input type="text" id="url" placeholder="https://.../Hard.json">
       <input type="text" id="proxy" placeholder="CORS-прокси (необязательно)">
@@ -209,6 +210,14 @@
 
   $('loadUrl').addEventListener('click',async function(){
     var url=$('url').value.trim(); if(!url){msg('msg1','Вставь ссылку','warn');return}
+    // Ссылка на мод/репозиторий/архив — это не .json, направляем в нужный блок.
+    if(/(gamebanana\.com\/(mods|sounds|dl)\/|github\.com\/|raw\.githubusercontent\.com\/|\.zip($|[?#]))/i.test(url)){
+      $('impUrl').value=url;
+      msg('msg1','Это ссылка на мод/архив — открываю «Импорт по ссылке»...','warn');
+      try{$('impUrl').scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}
+      $('impResolve').click();
+      return;
+    }
     var proxy=$('proxy').value.trim();
     var target=proxy?proxy+encodeURIComponent(url):url;
     this.disabled=true; msg('msg1','Загружаю...','warn');
@@ -219,7 +228,12 @@
       var p=Fnf2Osu.parseChart(text,name); p.fileName=name;
       charts.push(p); if(!$('title').value)$('title').value=p.name;
       renderFiles(); msg('msg1','Загружено: '+name+' · '+p.notes.length+' нот','ok'); buildPreview();
-    }catch(e){ msg('msg1','Не вышло: '+e.message+'. Возможно, нужен CORS-прокси.','err'); }
+    }catch(e){
+      var html=/<(!doctype|html)/i.test(String(text||''));
+      msg('msg1', html
+        ? 'Это веб-страница, а не .json-чарт. Ссылки на моды вставляй в блок «Импорт по ссылке» ниже.'
+        : 'Не вышло: '+e.message+'. Возможно, нужен CORS-прокси.','err');
+    }
     finally{this.disabled=false}
   });
 
