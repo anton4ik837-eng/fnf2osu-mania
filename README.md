@@ -10,7 +10,7 @@
 - https://anton4ik837-eng.github.io/fnf2osu-mania/lab/video2chart.html
 - https://anton4ik837-eng.github.io/fnf2osu-mania/lab/audio-search.html
 
-Проект задеплоен на Cloudflare Pages (Direct Upload, аккаунт `afcaa10b...`). При изменении файлов нужно заново собрать ZIP из `index.html`, `app.js`, `importer.js` и загрузить новую версию в проект `fnf2osu-converter` → Deployments → Create new deployment.
+Проект задеплоен на Cloudflare Pages (Direct Upload, аккаунт `afcaa10b...`). При изменении файлов нужно заново собрать ZIP из `index.html`, `app.js`, `importer.js`, `lame.min.js`, `remotezip.js` и загрузить новую версию в проект `fnf2osu-converter` → Deployments → Create new deployment.
 
 Импорт по ссылке использует маленький Workers-прокси `fnf2osu-fetch` (код в `worker.js`): он нужен только потому, что `gamebanana.com/dl/...` не отдаёт файлы с CORS. Секретов и биндингов у воркера нет.
 
@@ -19,6 +19,7 @@
 - `index.html` — интерфейс (открой его в браузере)
 - `app.js` — логика разбора чарта, генерации `.osu` и сборки `.osz`
 - `importer.js` — импорт по ссылке: GameBanana / GitHub / ZIP, поиск чартов и аудио, прогресс и отмена
+- `remotezip.js` — чтение больших ZIP по HTTP Range прямо с CDN GameBanana (не качаем 500 МБ целиком)
 - `lame.min.js` — MP3-кодек (вендоренный lamejs), чтобы микшер не раздувал аудио в WAV
 - `worker.js` — код CORS-прокси для Cloudflare Workers (задеплоен как `fnf2osu-fetch`)
 - `sample-chart.json`, `sample-audio.wav`, `testmod.zip` — тестовые файлы
@@ -44,6 +45,8 @@
 - **Прямые ссылки** на `.json` / `.zip`.
 
 Внутри архива поддерживаются обычные FNF-чарты (`notes` как массив), секции Psych/Vanilla с `sectionNotes`, и формат V-Slice/Polymod (`notes: {easy:[{d,t,l}], normal:[...]}`). Аудио `Inst` + `Voices` автоматически смешиваются в один трек и кодируются в MP3 (можно отключить — тогда будет WAV). Если аудио в моде нет (часто бывает у чарт-паков), его можно прикрепить вручную прямо в карточке песни.
+
+**Большие моды (Indie Cross и т.п.).** Архивы на 500–750 МБ больше не грузятся целиком: инструмент находит CDN-зеркало GameBanana с поддержкой `Range`, читает только каталог ZIP и сами чарты (доли мегабайта), а аудио скачивает **только при нажатии «Скачать .osz»** для конкретной песни. Проверено на `gamebanana.com/mods/375741` (19 песен, 500 МБ) и `mods/562444` (22 песни, 730 МБ). Поэтому вставляй ссылку именно на страницу мода (`/mods/ID`), а не прямую `gamebanana.com/dl/ID` — для прямой ссылки инструмент не знает размер файла и вынужден качать его целиком.
 
 Во время скачивания показывается процент, есть кнопка **«Отмена»**. Кнопка **«Скачать все песни одним архивом»** собирает один ZIP с `.osz` внутри каждой песни — так браузер не блокирует массовые загрузки.
 

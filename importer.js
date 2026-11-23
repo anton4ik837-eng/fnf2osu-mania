@@ -98,8 +98,24 @@
           archived: !!f._bIsArchived
         };
       });
+
+    // Большие архивы не грузим целиком: ищем CDN-зеркало с поддержкой Range.
+    if (global.FnfRemote) {
+      await Promise.all(files.map(async function (f) {
+        if (!/\.zip$/i.test(f.name) || f.size < 1024 * 1024) return;
+        try {
+          f.cdn = await global.FnfRemote.discover(f.name);
+          if (f.cdn) f.range = true;
+        } catch (e) { /* без зеркала — старый путь */ }
+      }));
+    }
     if (info.source === 'gamebanana-file') {
-      return { title: title, files: [{ name: 'download.zip', url: info.url, size: 0 }], source: 'gamebanana' };
+      return {
+        title: title,
+        files: [{ name: 'download.zip', url: info.url, size: 0 }],
+        source: 'gamebanana',
+        hint: 'Для больших архивов вставляй ссылку на страницу мода (/mods/ID) — так чарты качаются по частям.'
+      };
     }
     return { title: title, files: files, source: 'gamebanana' };
   }
@@ -232,18 +248,52 @@
     var progress = onProgress || function () {};
     var opts = options || {};
     var keys = opts.keys || 4;
-    var entries = [];
+    var entries = [], remoteAudios = [], remoteZip = null;
     for (var i = 0; i < files.length; i++) {
-      progress('Скачиваю ' + files[i].name + '...');
-      var buf = await fetchBuffer(files[i].url, proxy, 120000, function (got, total) {
-        progress(total ? 'Скачиваю ' + files[i].name + ': ' + Math.round(got / total * 100) + '%' :
-          'Скачиваю ' + files[i].name + ': ' + (got / 1048576).toFixed(1) + ' МБ');
+      var fi = files[i];
+      if (fi.range && fi.cdn && global.FnfRemote) {
+        // Большой архив: читаем только каталог и нужные файлы по Range.
+        progress('Открываю ' + fi.name + ' по частям (без полной загрузки)...');
+        var rz = new global.FnfRemote.RemoteZip(fi.cdn, fi.size, function (t) { progress(t); });
+        await rz.init();
+        remoteZip = rz;
+        var all = rz.entries;
+        var js = all.filter(function (e) {
+          if (!/\.json$/i.test(e.name) || e.usize >= 5000000) return false;
+          // Явно не чарты — не тратим на них запросы.
+          return !/assets\/(characters|images|stages|fonts|videos)\//i.test(e.name) &&
+            !/^(manifest|mods)\//i.test(e.name) && !/dialogue\.json$/i.test(e.name);
+        });
+        progress('Чартов в архиве: ' + js.length + '. Скачиваю...');
+        var done = 0;
+        for (var q = 0; q < js.length; q += 8) {
+          await Promise.all(js.slice(q, q + 8).map(async function (e) {
+            try {
+              var data = await rz.extract(e, function (got, total) {
+                progress('Чарты: ' + Math.round((done + got / total) / js.length * 100) + '%');
+              });
+              entries.push({ name: e.name, data: new Uint8Array(data) });
+            } catch (e2) { /* повреждённый/нестандартный файл — пропускаем */ }
+            done++;
+          }));
+        }
+        all.forEach(function (e) {
+          if (/\.(ogg|mp3|wav|m4a|flac)$/i.test(e.name)) {
+            remoteAudios.push({ name: e.name, entry: e, rz: rz, size: e.csize });
+          }
+        });
+        continue;
+      }
+      progress('Скачиваю ' + fi.name + '...');
+      var buf = await fetchBuffer(fi.url, proxy, 120000, function (got, total) {
+        progress(total ? 'Скачиваю ' + fi.name + ': ' + Math.round(got / total * 100) + '%' :
+          'Скачиваю ' + fi.name + ': ' + (got / 1048576).toFixed(1) + ' МБ');
       }, opts.signal);
-      if (/\.zip$/i.test(files[i].name) || /gamebanana\.com\/dl/i.test(files[i].url)) {
-        progress('Распаковываю ' + files[i].name + '...');
+      if (/\.zip$/i.test(fi.name) || /gamebanana\.com\/dl/i.test(fi.url)) {
+        progress('Распаковываю ' + fi.name + '...');
         entries = entries.concat(await readZip(buf));
       } else {
-        entries.push({ name: files[i].name, data: new Uint8Array(buf) });
+        entries.push({ name: fi.name, data: new Uint8Array(buf) });
       }
     }
 
@@ -271,6 +321,9 @@
         audios.push(e);
       }
     }
+    var allAudios = audios.concat(remoteAudios.map(function (a) {
+      return { name: a.name, remote: a, data: null };
+    }));
     if (!charts.length) throw new Error('В архиве не найдено ни одного чарта с нотами');
 
     var map = {};
@@ -285,9 +338,20 @@
     for (var key in map) {
       if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
       var g = map[key];
-      var found = findAudio(key, audios);
+      var found = findAudio(key, allAudios);
       try {
-        if (found.inst && found.voices) {
+        var chosen = [found.inst, found.voices, found.single].filter(Boolean);
+        if (chosen.length && chosen.some(function (x) { return x.remote; })) {
+          // Аудио в удалённом архиве — скачаем его только когда пользователь экспортирует песню.
+          g.remoteAudio = {
+            inst: found.inst && found.inst.remote ? found.inst.remote : null,
+            voices: found.voices && found.voices.remote ? found.voices.remote : null,
+            single: found.single && found.single.remote ? found.single.remote : null,
+            local: chosen.filter(function (x) { return !x.remote; }).map(function (x) { return bytesOf(x.data); }),
+            name: chosen[0].name,
+            size: chosen.reduce(function (s, x) { return s + (x.remote ? x.remote.size : x.data.byteLength); }, 0)
+          };
+        } else if (found.inst && found.voices) {
           var mixed = await A.mixAudio([bytesOf(found.inst.data), bytesOf(found.voices.data)], 0, opts.mp3 !== false);
           g.audio = mixed.buffer; g.audioExt = mixed.ext;
           found.inst.data = null; found.voices.data = null;
@@ -302,10 +366,36 @@
       g.source = opts.source || null;
       groups.push(g);
     }
-    return { groups: groups, entries: entries.length, audios: audios.length, source: opts.source || null };
+    return { groups: groups, entries: entries.length, audios: allAudios.length, source: opts.source || null, remote: !!remoteZip };
   }
 
-  var API = { resolve: resolve, load: load, readZip: readZip, fetchBuffer: fetchBuffer, parseGb: parseGb, parseGh: parseGh };
+  /** Скачивает аудио из удалённого архива только при экспорте и кэширует его. */
+  async function getGroupAudio(g, onProgress) {
+    if (g.audio) return { buffer: g.audio, ext: g.audioExt };
+    var r = g.remoteAudio;
+    if (!r) throw new Error('Для этой песни нет аудио — прикрепи файл вручную');
+    var sources = (r.local || []).slice();
+    var parts = [r.inst, r.voices, r.single].filter(Boolean);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var bytes = await p.rz.extract(p.entry, function (got, total) {
+        if (onProgress) onProgress('Скачиваю аудио: ' + Math.round(got / total * 100) + '%');
+      });
+      sources.push(bytesOf(bytes));
+    }
+    var res = sources.length > 1
+      ? await A.mixAudio(sources, 0, true)
+      : { buffer: sources[0], ext: (r.name.split('.').pop() || 'ogg').toLowerCase() };
+    g.audio = res.buffer;
+    g.audioExt = res.ext;
+    g.audioError = null;
+    return res;
+  }
+
+  var API = {
+    resolve: resolve, load: load, getGroupAudio: getGroupAudio,
+    readZip: readZip, fetchBuffer: fetchBuffer, parseGb: parseGb, parseGh: parseGh
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   else global.FnfImport = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

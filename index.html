@@ -143,6 +143,7 @@
 </div>
 <script src="app.js"></script>
 <script src="lame.min.js"></script>
+<script src="remotezip.js"></script>
 <script src="importer.js"></script>
 <script>
 (function(){
@@ -310,6 +311,16 @@
     };
   }
 
+  async function ensureAudio(g, statusId){
+    if(g.audio) return true;
+    if(g.remoteAudio){
+      msg(statusId,'Скачиваю аудио ('+fmtSize(g.remoteAudio.size)+')...','warn');
+      await FnfImport.getGroupAudio(g,function(t){ msg(statusId,t,'warn'); });
+      return true;
+    }
+    return false;
+  }
+
   $('impCancel').addEventListener('click',function(){
     if(importAbort){ importAbort.abort(); msg('impMsg','Отменяю...','warn'); }
   });
@@ -344,8 +355,9 @@
         var pack=[];
         for(var i=0;i<groups.length;i++){
           var g=groups[i];
-          if(!g.audio) continue;
+          if(!g.audio && !g.remoteAudio) continue;
           msg('impMsg','Упаковываю '+(i+1)+' из '+groups.length+': '+g.song,'warn');
+          await ensureAudio(g,'impMsg');
           var r=await buildOsz(g.charts.map(function(c){return c.parsed}), g.audio, g.audioExt, g.song, groupMeta(g));
           pack.push({name:r.name,data:r.bytes});
         }
@@ -362,8 +374,9 @@
       var card=document.createElement('div');
       card.className='card'; card.style.cssText='background:var(--card2);margin:8px 0;padding:12px';
       var safe=escapeHtml(g.song);
-      var audioLabel='<span class="audioStatus pill">'+(g.audio?'аудио OK':escapeHtml(g.audioError||'аудио не найдено'))+'</span>';
-      var audioPicker=g.audio?'':'<div class="hint" style="margin-top:6px">Аудио нет в моде — прикрепи его сам: '+
+      var audioLabel='<span class="audioStatus pill">'+(g.audio?'аудио OK':
+        (g.remoteAudio?'аудио '+fmtSize(g.remoteAudio.size)+' (по запросу)':escapeHtml(g.audioError||'аудио не найдено')))+'</span>';
+      var audioPicker=(g.audio||g.remoteAudio)?'':'<div class="hint" style="margin-top:6px">Аудио нет в моде — прикрепи его сам: '+
         '<input type="file" class="audioPick" accept="audio/*" style="display:block;margin-top:5px"></div>';
       var diffs=g.charts.map(function(c,i){
         return '<label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:13px;margin:5px 0">'+
@@ -372,7 +385,7 @@
       }).join('');
       card.innerHTML='<b>'+safe+'</b> <span class="pill">'+g.charts.length+' сложностей</span> '+audioLabel+
         audioPicker+'<div style="margin-top:8px">'+diffs+'</div>'+
-        '<button class="btn primary" style="margin-top:8px"'+(g.audio?'':' disabled')+'>Скачать .osz</button>';
+        '<button class="btn primary" style="margin-top:8px"'+(g.audio||g.remoteAudio?'':' disabled')+'>Скачать .osz</button>';
       var btn=card.querySelector('button');
       var pick=card.querySelector('.audioPick');
       if(pick) pick.addEventListener('change', async function(){
@@ -383,9 +396,11 @@
         btn.disabled=false;
         card.querySelector('.audioStatus').textContent='аудио OK';
       });
-      btn.addEventListener('click',function(){
+      btn.addEventListener('click',async function(){
         var picks=Array.from(card.querySelectorAll('input[type=checkbox]:checked')).map(function(cb){return g.charts[+cb.dataset.i].parsed});
         if(!picks.length){msg('impMsg','Выбери хотя бы одну сложность','warn');return}
+        try{ await ensureAudio(g,'impMsg'); }
+        catch(e){ msg('impMsg','Аудио: '+(e&&e.message||e),'err'); return; }
         return assemble(picks,g.audio,g.audioExt,g.song,'impMsg',btn,groupMeta(g));
       });
       host.appendChild(card);
@@ -417,10 +432,12 @@
       host.querySelector('#impGo').addEventListener('click',function(){
         var f=r.files[+sel.value];
         if(!supported(f)){ msg('impMsg','RAR/7z не поддерживаются — выбери .zip версию файла','warn'); return; }
-        if(f.size>50*1048576 && !confirm('Файл '+(f.size/1048576).toFixed(0)+' MB. На телефоне это может быть долго и требовать много памяти. Продолжить?')) return;
+        if(f.range){
+          msg('impMsg','Большой архив: скачаю только чарты, аудио — по запросу.','warn');
+        } else if(f.size>50*1048576 && !confirm('Файл '+(f.size/1048576).toFixed(0)+' MB. На телефоне это может быть долго и требовать много памяти. Продолжить?')) return;
         startImport([f], r.title, r.sourceUrl);
       });
-      msg('impMsg','Найдено файлов: '+r.files.length+'. Выбери .zip (RAR не поддерживается).','ok');
+      msg('impMsg','Найдено файлов: '+r.files.length+'. Выбери .zip (RAR не поддерживается).'+(r.hint?' '+r.hint:''),'ok');
     }catch(e){ msg('impMsg','Ошибка: '+(e&&e.message||e),'err'); }
     finally{ this.disabled=false; }
   });
